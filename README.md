@@ -1,8 +1,12 @@
+# ViaProxy - Realms Enhancement
+
+Allows ViaProxy to automatically choose a realm server to join based on configuration.
+
 # ViaProxy
 Standalone proxy which allows players to join EVERY Minecraft server version (Classic, Alpha, Beta, Release, Bedrock)
 
-To download the latest version, go to the [Releases section](#executable-jar-file) and download the latest version.  
-Using it is very simple, just run the jar file, and it will start a user interface where everything can be configured.  
+To download the latest version, go to the [Releases section](#executable-jar-file) and download the latest version.
+Using it is very simple, just run the jar file, and it will start a user interface where everything can be configured.
 For a full user guide go to the [Usage for Players](#usage-for-players-gui) section or the [Usage for Server Owners](#usage-for-server-owners-config) section.
 
 ## Supported Server versions
@@ -91,7 +95,7 @@ dependencies {
 7. Have fun!
 
 ### Configuring the protocol translation
-To change ViaProxy settings you can check out the ``viaproxy.yml`` config file. Most of the settings are configurable via the GUI.  
+To change ViaProxy settings you can check out the ``viaproxy.yml`` config file. Most of the settings are configurable via the GUI.
 To change the protocol translation settings/features you can look into the ``ViaLoader`` folder.
 You will find 5 config files there:
 - viaversion.yml (ViaVersion)
@@ -101,7 +105,7 @@ You will find 5 config files there:
 - viabedrock.yml (ViaBedrock)
 
 ### Developer Plugin API
-ViaProxy has a plugin API which allows you to create plugins for ViaProxy.  
+ViaProxy has a plugin API which allows you to create plugins for ViaProxy.
 Documentation and examples:
 - [NoLocalConnections](https://github.com/ViaVersionAddons/NoLocalConnections)
 - [ViaProxyMultiLaunch](https://github.com/ViaVersionAddons/ViaProxyMultiLaunch)
@@ -120,6 +124,6 @@ You can find the guidelines for creating a language file in the [en_US](/src/mai
 
 ## Contact
 If you encounter any issues, please report them on the
-[issue tracker](https://github.com/ViaVersion/ViaProxy/issues).  
+[issue tracker](https://github.com/ViaVersion/ViaProxy/issues).
 If you just want to talk or need help using ViaProxy feel free to join the ViaVersion
 [Discord](https://discord.gg/viaversion).

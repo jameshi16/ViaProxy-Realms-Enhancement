@@ -4,6 +4,9 @@
 # The address ViaProxy should listen for connections.
 bind-address: "0.0.0.0:25568"
 #
+# Whether to use realms
+use-realms: false
+#
 # The address of the server ViaProxy should connect to.
 target-address: "127.0.0.1:25565"
 #

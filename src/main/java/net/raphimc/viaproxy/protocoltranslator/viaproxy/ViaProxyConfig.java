@@ -17,12 +17,16 @@
  */
 package net.raphimc.viaproxy.protocoltranslator.viaproxy;
 
+import com.google.common.collect.Iterables;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.util.Config;
 import joptsimple.OptionException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
+import net.raphimc.minecraftauth.MinecraftAuth;
+import net.raphimc.minecraftauth.service.realms.JavaRealmsService;
+import net.raphimc.minecraftauth.service.realms.model.RealmsWorld;
 import net.raphimc.vialoader.util.JLoggerToSLF4J;
 import net.raphimc.viaproxy.ViaProxy;
 import net.raphimc.viaproxy.cli.BetterHelpFormatter;
@@ -32,6 +36,7 @@ import net.raphimc.viaproxy.plugins.events.PostOptionsParseEvent;
 import net.raphimc.viaproxy.plugins.events.PreOptionsParseEvent;
 import net.raphimc.viaproxy.protocoltranslator.ProtocolTranslator;
 import net.raphimc.viaproxy.saves.impl.accounts.Account;
+import net.raphimc.viaproxy.saves.impl.accounts.MicrosoftAccount;
 import net.raphimc.viaproxy.util.AddressUtil;
 import net.raphimc.viaproxy.util.logging.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,6 +84,7 @@ public class ViaProxyConfig extends Config implements com.viaversion.viaversion.
     private SocketAddress targetAddress = AddressUtil.parse("127.0.0.1:25565", null);
     private ProtocolVersion targetVersion = ProtocolTranslator.AUTO_DETECT_PROTOCOL;
     private boolean proxyOnlineMode = false;
+    private boolean useRealms = false;
     private AuthMethod authMethod = AuthMethod.NONE;
     private Account account = null;
     private boolean betacraftAuth = false;
@@ -130,9 +136,14 @@ public class ViaProxyConfig extends Config implements com.viaversion.viaversion.
         super.reload();
 
         this.bindAddress = AddressUtil.parse(this.getString("bind-address", AddressUtil.toString(this.bindAddress)), null);
-        this.targetVersion = ProtocolVersion.getClosest(this.getString("target-version", this.targetVersion.getName()));
-        this.checkTargetVersion();
-        this.targetAddress = AddressUtil.parse(this.getString("target-address", AddressUtil.toString(this.targetAddress)), this.targetVersion);
+        this.targetVersion = ProtocolVersion
+                .getClosest(this.getString("target-version", this.targetVersion.getName()));
+        this.useRealms = this.getBoolean("use-realms", this.useRealms);
+        if (!this.useRealms) {
+            this.targetAddress = AddressUtil
+                    .parse(this.getString("target-address", AddressUtil.toString(this.targetAddress)),
+                            this.targetVersion);
+        }
         this.proxyOnlineMode = this.getBoolean("proxy-online-mode", this.proxyOnlineMode);
         this.authMethod = AuthMethod.byName(this.getString("auth-method", this.authMethod.name()));
         final List<Account> accounts = ViaProxy.getSaveManager().accountsSave.getAccounts();
@@ -142,6 +153,11 @@ public class ViaProxyConfig extends Config implements com.viaversion.viaversion.
         } else {
             this.account = null;
         }
+
+        if (this.useRealms) {
+            hackLoadRealms();
+        }
+        this.checkTargetVersion();
         this.betacraftAuth = this.getBoolean("betacraft-auth", this.betacraftAuth);
         this.backendProxyUrl = this.parseProxyUrl(this.getString("backend-proxy-url", ""));
         this.backendHaProxy = this.getBoolean("backend-haproxy", this.backendHaProxy);
@@ -157,6 +173,58 @@ public class ViaProxyConfig extends Config implements com.viaversion.viaversion.
         this.wildcardDomainHandling = WildcardDomainHandling.byName(this.getString("wildcard-domain-handling", this.wildcardDomainHandling.name()));
         this.simpleVoiceChatSupport = this.getBoolean("simple-voice-chat-support", this.simpleVoiceChatSupport);
         this.fakeAcceptResourcePacks = this.getBoolean("fake-accept-resource-packs", this.fakeAcceptResourcePacks);
+    }
+
+    /**
+     * HACK: Refreshes the account and attempts to get a matching realm
+     */
+    private void hackLoadRealms() {
+        this.logger.info("Recognized useRealms");
+        if (this.account == null) {
+            this.logger.severe("No account to select realms");
+        }
+
+        if (!(account instanceof MicrosoftAccount)) {
+            this.logger.severe("Cannot connect to Realms with a non-microsoft account");
+        }
+
+        this.logger.info("Attempting to refresh microsoft account");
+        try {
+            if (!account.refresh()) {
+                throw new Exception();
+            }
+        } catch (Exception e) {
+            this.logger.severe("Cannot refresh account, quitting...");
+        }
+
+        final JavaRealmsService realmsService = new JavaRealmsService(MinecraftAuth.createHttpClient(),
+                Iterables.getLast(this.targetVersion.getIncludedVersions()),
+                ((MicrosoftAccount) account).getMcProfile());
+
+        realmsService.isAvailable().thenAccept(state -> {
+            if (state) {
+                realmsService.getWorlds().thenAccept(worlds -> {
+                    final String joinWithUser = this.getString("target-address", "");
+                    this.logger.info("Will join " + joinWithUser);
+
+                    for (RealmsWorld world : worlds) {
+                        if (!world.getOwnerName().equals(joinWithUser)) {
+                            this.logger.info("Skipping world owned by " + world.getOwnerName());
+                            continue;
+                        }
+                        this.logger.info("Found world owned by " + world.getOwnerName());
+
+                        realmsService.joinWorld(world).thenAccept(address -> {
+                            this.targetAddress = AddressUtil
+                                    .parse(address, this.targetVersion);
+                        }).join();
+                        break;
+                    }
+                }).join();
+            } else {
+                this.logger.severe("Realms have no state");
+            }
+        }).join();
     }
 
     public void loadFromArguments(final String[] args) throws IOException {
